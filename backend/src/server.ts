@@ -85,7 +85,13 @@ const startServer = async (): Promise<void> => {
     await connectDatabase();
 
     // Conectar ao Redis (opcional - graceful degradation)
-    await connectRedis();
+    // Redis desabilitado temporariamente na Vercel
+if (process.env.DISABLE_REDIS !== 'true') {
+  await connectRedis();
+} else {
+  logger.info('Redis desabilitado nesta instância');
+}
+
 
     // Start job workers and scheduler (graceful — continues if Redis unavailable)
     // When DISABLE_WORKERS=true, backend acts as producer only (worker service handles consumption)
