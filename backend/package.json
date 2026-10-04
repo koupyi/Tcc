@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:prod": "prisma migrate deploy",
@@ -70,13 +71,5 @@
   "prisma": {
     "schema": "src/prisma/schema.prisma",
     "seed": "tsx src/prisma/seed.ts"
-  },
-  "allowScripts": {
-    "@prisma/client@5.22.0": true,
-    "prisma@5.22.0": true,
-    "@prisma/engines@5.22.0": true,
-    "argon2@0.31.2": true,
-    "sharp@0.33.5": true,
-    "esbuild@0.28.1": true
   }
 }
