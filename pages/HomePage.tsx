@@ -4,6 +4,7 @@ import { ArrowRight, Zap, Shield, Palette, Users } from "lucide-react";
 import heroImage from "@/assets/hero-keyboard.jpg";
 import midnightPurple from "@/assets/community-builds/midnight-purple.png"
 import brancoArtico from "@/assets/community-builds/branco-artico.png"
+import botanicGarden from "@/assets/community-builds/botanic-garden.png"
 import neonDreams from "@/assets/community-builds/neon-dreams.png"
 import gateronOil from "@/assets/produtos/gateron-oil.png"
 import gmkLaser from "@/assets/produtos/gmkLaser.png"
@@ -15,6 +16,7 @@ const spring = { type: "spring" as const, stiffness: 300, damping: 25, mass: 0.5
 const featuredBuilds = [
   { title: "Midnight Purple", layout: "75%", price: "R$299,99", image: midnightPurple },
   { title: "Branco Ártico", layout: "TKL", price: "R$299,99", image: brancoArtico },
+  { title: "Botanical Garden", layout: "75%", price: "R$349,99", image: botanicGarden },
   { title: "Neon Dreams", layout: "Full Size", price: "R$349,99", image: neonDreams },
 ];
 
