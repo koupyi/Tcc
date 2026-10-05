@@ -4,6 +4,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
+export type KeyboardCaseFinish = "solid" | "wood";
+
 export interface PreviewItem {
   productId: string;
   name: string;
@@ -16,6 +18,7 @@ interface KeyboardPreviewProps {
   selectedSwitch: PreviewItem | null;
   selectedPcb: PreviewItem | null;
   caseColor: string;
+  finish?: KeyboardCaseFinish;
 }
 
 const layoutKeyCount: Record<string, number> = {
@@ -65,10 +68,56 @@ export const getModelUrl = (layout: string | null | undefined, keycap: PreviewIt
   return modelUrls[normalizedLayout] ?? modelUrls["65"];
 };
 
-const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selectedSwitch, selectedPcb, caseColor }: KeyboardPreviewProps) => {
+export const resolveCaseFinish = (
+  finish: KeyboardCaseFinish | undefined,
+  selectedCase: PreviewItem | null,
+  selectedKeycap: PreviewItem | null,
+): KeyboardCaseFinish => {
+  if (finish === "wood") return "wood";
+  if (finish === "solid") return "solid";
+  if (isBotanicalTheme(selectedCase) || isBotanicalTheme(selectedKeycap)) return "wood";
+  return "solid";
+};
+
+const buildWoodTexture = () => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+  gradient.addColorStop(0, "#7a4d2e");
+  gradient.addColorStop(0.3, "#c38d54");
+  gradient.addColorStop(0.6, "#9d6840");
+  gradient.addColorStop(1, "#53341d");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < 150; i++) {
+    const y = Math.random() * 256;
+    const x = Math.random() * 256;
+    const width = 18 + Math.random() * 60;
+    ctx.strokeStyle = `rgba(80, 50, 24, ${0.12 + Math.random() * 0.22})`;
+    ctx.lineWidth = 2 + Math.random() * 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.bezierCurveTo(x + width * 0.5, y - 10, x + width * 0.8, y + 8, x + width, y + 2);
+    ctx.stroke();
+  }
+
+  const woodTexture = new THREE.CanvasTexture(canvas);
+  woodTexture.wrapS = THREE.RepeatWrapping;
+  woodTexture.wrapT = THREE.RepeatWrapping;
+  woodTexture.repeat.set(1.8, 1.8);
+  return woodTexture;
+};
+
+const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selectedSwitch, selectedPcb, caseColor, finish }: KeyboardPreviewProps) => {
   const normalizedLayout = normalizeLayoutValue(selectedLayout);
   const keyCount = layoutKeyCount[normalizedLayout] ?? 68;
   const caseColorHex = caseColor || "#2a2a2e";
+  const effectiveFinish = resolveCaseFinish(finish, selectedCase, selectedKeycap);
   const selectedModelUrl = getModelUrl(normalizedLayout, selectedKeycap, selectedCase);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -199,21 +248,40 @@ const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selecte
   useEffect(() => {
     if (!modelRef.current) return;
 
+    const woodTexture = effectiveFinish === "wood" ? buildWoodTexture() : null;
+
     modelRef.current.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
+        const applyMaterial = (material: THREE.Material) => {
+          if (!(material instanceof THREE.MeshStandardMaterial)) return;
+          material.color.set(normalizeColor(caseColorHex));
+          material.roughness = effectiveFinish === "wood" ? 0.9 : 0.45;
+          material.metalness = effectiveFinish === "wood" ? 0.1 : 0.2;
+
+          if (effectiveFinish === "wood") {
+            material.map = woodTexture ?? material.map;
+            material.bumpMap = woodTexture ?? material.bumpMap;
+            material.bumpScale = 0.18;
+          } else {
+            material.map = null;
+            material.bumpMap = null;
+          }
+          material.needsUpdate = true;
+        };
+
         if (Array.isArray(mesh.material)) {
-          mesh.material.forEach((material) => {
-            if (material instanceof THREE.MeshStandardMaterial) {
-              material.color.set(normalizeColor(caseColorHex));
-            }
-          });
-        } else if (mesh.material instanceof THREE.MeshStandardMaterial) {
-          mesh.material.color.set(normalizeColor(caseColorHex));
+          mesh.material.forEach(applyMaterial);
+        } else if (mesh.material) {
+          applyMaterial(mesh.material);
         }
       }
     });
-  }, [caseColorHex]);
+
+    return () => {
+      if (woodTexture) woodTexture.dispose();
+    };
+  }, [caseColorHex, effectiveFinish]);
 
   return (
     <div className="flex flex-col items-center gap-6">

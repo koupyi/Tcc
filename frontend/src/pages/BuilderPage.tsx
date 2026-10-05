@@ -108,6 +108,7 @@ const BuilderPage = () => {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitErrors, setSubmitErrors] = useState<string[]>([]);
+  const [baseFinish, setBaseFinish] = useState<"solid" | "wood">("solid");
 
   const draftRestored = useRef(false);
   const prefillApplied = useRef(false);
@@ -242,6 +243,14 @@ const BuilderPage = () => {
   useEffect(() => {
     stepTitleRef.current?.focus();
   }, [stepIndex]);
+
+  const botanicalBaseActive = Boolean(
+    configuration.case && /botanical|garden/i.test(configuration.case.name || "")
+  ) || Boolean(
+    configuration.keycap && /botanical|garden/i.test(configuration.keycap.name || "")
+  );
+
+  const effectiveBaseFinish = botanicalBaseActive ? "wood" : baseFinish;
 
   const ctx = useMemo(() => buildContext(configuration), [configuration]);
 
@@ -491,8 +500,30 @@ const BuilderPage = () => {
                     selectedPcb={configuration.pcb}
                     selectedSwitch={configuration.switch}
                     selectedKeycap={configuration.keycap}
-                    caseColor="#2a2a2e"
+                    caseColor={effectiveBaseFinish === "wood" ? "#b07a49" : "#2a2a2e"}
+                    finish={effectiveBaseFinish}
                   />
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBaseFinish("solid")}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      effectiveBaseFinish === "solid" ? "border-primary bg-primary/10 text-primary" : "border-border bg-transparent text-foreground"
+                    }`}
+                  >
+                    Base preta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBaseFinish("wood")}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      effectiveBaseFinish === "wood" ? "border-amber-500 bg-amber-500/10 text-amber-300" : "border-border bg-transparent text-foreground"
+                    }`}
+                  >
+                    Base de madeira
+                  </button>
                 </div>
               </div>
             </div>
