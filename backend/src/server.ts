@@ -13,6 +13,10 @@ import { router } from './routes';
 
 const app = express();
 
+// Vercel/Edge proxies inject X-Forwarded-For and X-Forwarded-Proto headers.
+// Without this, express-rate-limit throws when it sees those headers.
+app.set('trust proxy', 1);
+
 // Export for testing
 export { app };
 
