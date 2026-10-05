@@ -248,6 +248,9 @@ const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selecte
   useEffect(() => {
     if (!modelRef.current) return;
 
+    const modelIsBotanical = selectedModelUrl.toLowerCase().includes("botanical");
+    if (modelIsBotanical) return;
+
     const woodTexture = effectiveFinish === "wood" ? buildWoodTexture() : null;
 
     modelRef.current.traverse((child) => {
@@ -281,7 +284,7 @@ const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selecte
     return () => {
       if (woodTexture) woodTexture.dispose();
     };
-  }, [caseColorHex, effectiveFinish]);
+  }, [caseColorHex, effectiveFinish, selectedModelUrl]);
 
   return (
     <div className="flex flex-col items-center gap-6">
