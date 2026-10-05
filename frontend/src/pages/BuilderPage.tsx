@@ -414,13 +414,38 @@ const BuilderPage = () => {
 
   if (error || !options) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Não foi possível carregar as opções agora.</h1>
-        <p className="text-foreground mb-6">{error}</p>
-        <button onClick={loadOptions} className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-md">
-          Tentar novamente
-        </button>
+      <div className="container mx-auto px-4 py-20 space-y-6">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Não foi possível carregar as opções agora.</h1>
+          <p className="text-foreground mb-6">{error}</p>
+          <button onClick={loadOptions} className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-md">
+            Tentar novamente
+          </button>
+        </div>
+
+        <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-slate-950/40 p-3 shadow-inner">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-muted-foreground">Preview 3D</p>
+              <h3 className="text-sm font-semibold text-foreground">Modelo do teclado</h3>
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70">
+              Orbit
+            </span>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-background/60">
+            <KeyboardPreview
+              selectedLayout="65"
+              selectedCase={null}
+              selectedPcb={null}
+              selectedSwitch={null}
+              selectedKeycap={null}
+              caseColor="#2a2a2e"
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -447,14 +472,29 @@ const BuilderPage = () => {
           {currentStep.key === "layout" && (
             <div className="space-y-6">
               <LayoutSelector layouts={options.layouts} selected={configuration.layout} onChange={handleLayoutChange} />
-              <KeyboardPreview
-                selectedLayout={configuration.layout || ""}
-                selectedCase={configuration.case}
-                selectedPcb={configuration.pcb}
-                selectedSwitch={configuration.switch}
-                selectedKeycap={configuration.keycap}
-                caseColor="#2a2a2e"
-              />
+
+              <div className="rounded-2xl border border-border bg-slate-950/60 p-3 shadow-inner">
+                <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-muted-foreground">Preview 3D</p>
+                    <h3 className="text-sm font-semibold text-foreground">Visualização do teclado</h3>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70">
+                    Orbit
+                  </span>
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-background/60">
+                  <KeyboardPreview
+                    selectedLayout={configuration.layout || "65"}
+                    selectedCase={configuration.case}
+                    selectedPcb={configuration.pcb}
+                    selectedSwitch={configuration.switch}
+                    selectedKeycap={configuration.keycap}
+                    caseColor="#2a2a2e"
+                  />
+                </div>
+              </div>
             </div>
           )}
 

@@ -1,5 +1,8 @@
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { keyCountForLayout, layoutLabel } from "@/utils/builderLayout";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 export interface PreviewItem {
   productId: string;
@@ -12,250 +15,222 @@ interface KeyboardPreviewProps {
   selectedKeycap: PreviewItem | null;
   selectedSwitch: PreviewItem | null;
   selectedPcb: PreviewItem | null;
-  caseColor: string; // hex
+  caseColor: string;
 }
 
+const layoutKeyCount: Record<string, number> = {
+  "60": 61,
+  "65": 68,
+  "75": 84,
+  tkl: 87,
+  full: 104,
+};
 
+const modelUrls: Record<string, string> = {
+  "60": "/teclado-60.glb",
+  "65": "/teclado-65-base.glb",
+  "75": "/teclado-75-base.glb",
+  tkl: "/teclado-75-base.glb",
+  full: "/teclado-100.glb",
+};
 
-/* ── Key model ────────────────────────────────────────────────
-   Each row is a list of keys (label + width in "u" units) or
-   spacers (gaps used to separate clusters, like a real board). */
-type Key = { k: string; w?: number; h?: number };
-type Gap = { gap: number };
-type Cell = Key | Gap;
-type Row = Cell[];
+const normalizeLayoutValue = (layout: string | null | undefined): string => {
+  const normalized = (layout ?? "65").trim().toLowerCase().replace(/%/g, "").replace(/\s+/g, "");
 
-const isGap = (c: Cell): c is Gap => "gap" in c;
+  if (normalized === "60" || normalized === "65" || normalized === "75") return normalized;
+  if (normalized === "tkl" || normalized === "full") return normalized;
+  return "65";
+};
 
-/* Shared alpha rows (ANSI) */
-const numRow: Row = [
-  { k: "`" }, { k: "1" }, { k: "2" }, { k: "3" }, { k: "4" }, { k: "5" }, { k: "6" },
-  { k: "7" }, { k: "8" }, { k: "9" }, { k: "0" }, { k: "-" }, { k: "=" }, { k: "⌫", w: 2 },
-];
-const tabRow: Row = [
-  { k: "Tab", w: 1.5 }, { k: "Q" }, { k: "W" }, { k: "E" }, { k: "R" }, { k: "T" }, { k: "Y" },
-  { k: "U" }, { k: "I" }, { k: "O" }, { k: "P" }, { k: "[" }, { k: "]" }, { k: "\\", w: 1.5 },
-];
-const capsRow: Row = [
-  { k: "Caps", w: 1.75 }, { k: "A" }, { k: "S" }, { k: "D" }, { k: "F" }, { k: "G" }, { k: "H" },
-  { k: "J" }, { k: "K" }, { k: "L" }, { k: ";" }, { k: "'" }, { k: "Enter", w: 2.25 },
-];
-const alphaShiftRow = (rightShiftW: number): Row => [
-  { k: "Shift", w: 2.25 }, { k: "Z" }, { k: "X" }, { k: "C" }, { k: "V" }, { k: "B" },
-  { k: "N" }, { k: "M" }, { k: "," }, { k: "." }, { k: "/" }, { k: "Shift", w: rightShiftW },
-];
+const isGmkKeycap = (keycap: PreviewItem | null): boolean => {
+  const keycapName = keycap?.name?.toLowerCase() ?? "";
+  return keycapName.includes("gmk") || keycapName.includes("gmk");
+};
 
-/* F-rows */
-const fRowCompact: Row = [
-  { k: "Esc" }, { k: "F1" }, { k: "F2" }, { k: "F3" }, { k: "F4" }, { k: "F5" }, { k: "F6" },
-  { k: "F7" }, { k: "F8" }, { k: "F9" }, { k: "F10" }, { k: "F11" }, { k: "F12" },
-];
-const fRowTkl: Row = [
-  { k: "Esc" }, { gap: 1 },
-  { k: "F1" }, { k: "F2" }, { k: "F3" }, { k: "F4" }, { gap: 0.5 },
-  { k: "F5" }, { k: "F6" }, { k: "F7" }, { k: "F8" }, { gap: 0.5 },
-  { k: "F9" }, { k: "F10" }, { k: "F11" }, { k: "F12" },
-];
+const getModelUrl = (layout: string, keycap: PreviewItem | null): string => {
+  const normalizedLayout = normalizeLayoutValue(layout);
 
-/* ── Layouts ──────────────────────────────────────────────── */
-function buildLayout(layout: string): { rows: Row[]; numpad: boolean } {
-  switch (layout) {
-    /* 60% — 61 teclas, sem F-row, sem navegação, sem setas */
-    case "60":
-      return {
-        numpad: false,
-        rows: [
-          [{ k: "Esc" }, ...numRow.slice(1)],
-          tabRow,
-          capsRow,
-          alphaShiftRow(2.75),
-          [
-            { k: "Ctrl", w: 1.25 }, { k: "Win", w: 1.25 }, { k: "Alt", w: 1.25 },
-            { k: "Space", w: 6.25 },
-            { k: "Alt", w: 1.25 }, { k: "Win", w: 1.25 }, { k: "Fn", w: 1.25 }, { k: "Ctrl", w: 1.25 },
-          ],
-        ],
-      };
+  if (normalizedLayout === "65" && isGmkKeycap(keycap)) return "/teclado-65-gmk.glb";
+  if (normalizedLayout === "75" && isGmkKeycap(keycap)) return "/teclado-75-gmk.glb";
 
-    /* 65% — 68 teclas: 60% + coluna de navegação + setas */
-    case "65":
-      return {
-        numpad: false,
-        rows: [
-          [{ k: "Esc" }, ...numRow.slice(1), { gap: 0.25 }, { k: "Del" }],
-          [...tabRow, { gap: 0.25 }, { k: "PgUp" }],
-          [...capsRow, { gap: 0.25 }, { k: "PgDn" }],
-          [...alphaShiftRow(1.75), { gap: 0.25 }, { k: "↑" }],
-          [
-            { k: "Ctrl", w: 1.25 }, { k: "Win", w: 1.25 }, { k: "Alt", w: 1.25 },
-            { k: "Space", w: 6.25 },
-            { k: "Alt", w: 1.25 }, { k: "Fn", w: 1.25 }, { gap: 0.25 },
-            { k: "←" }, { k: "↓" }, { k: "→" },
-          ],
-        ],
-      };
-
-    /* 75% — F-row compacta + coluna lateral de navegação */
-    case "75":
-      return {
-        numpad: false,
-        rows: [
-          [...fRowCompact, { gap: 0.25 }, { k: "Del" }],
-          [...numRow, { gap: 0.25 }, { k: "Home" }],
-          [...tabRow, { gap: 0.25 }, { k: "PgUp" }],
-          [...capsRow, { gap: 0.25 }, { k: "PgDn" }],
-          [...alphaShiftRow(1.75), { gap: 0.25 }, { k: "↑" }],
-          [
-            { k: "Ctrl", w: 1.25 }, { k: "Win", w: 1.25 }, { k: "Alt", w: 1.25 },
-            { k: "Space", w: 6.25 },
-            { k: "Alt", w: 1.25 }, { k: "Fn", w: 1.25 }, { gap: 0.25 },
-            { k: "←" }, { k: "↓" }, { k: "→" },
-          ],
-        ],
-      };
-
-    /* TKL / Full — 87+ teclas com clusters separados */
-    case "tkl":
-    case "full":
-      return {
-        numpad: layout === "full",
-        rows: [
-          [...fRowTkl, { gap: 0.5 }, { k: "PrtSc" }, { k: "Scr" }, { k: "Pse" }],
-          [...numRow, { gap: 0.5 }, { k: "Ins" }, { k: "Home" }, { k: "PgUp" }],
-          [...tabRow, { gap: 0.5 }, { k: "Del" }, { k: "End" }, { k: "PgDn" }],
-          [...capsRow],
-          [...alphaShiftRow(2.75), { gap: 1.5 }, { k: "↑" }],
-          [
-            { k: "Ctrl", w: 1.25 }, { k: "Win", w: 1.25 }, { k: "Alt", w: 1.25 },
-            { k: "Space", w: 6.25 },
-            { k: "Alt", w: 1.25 }, { k: "Win", w: 1.25 }, { k: "Menu", w: 1.25 }, { k: "Ctrl", w: 1.25 },
-            { gap: 0.5 }, { k: "←" }, { k: "↓" }, { k: "→" },
-          ],
-        ],
-      };
-
-    default:
-      // Unknown/unselected layout — render a sane 65% default so the preview never crashes.
-      return buildLayout("65");
-  }
-}
-
-/* Numpad (17 teclas) para Full */
-const numpadLeft: Row[] = [
-  [{ k: "Num" }, { k: "/" }, { k: "*" }],
-  [{ k: "7" }, { k: "8" }, { k: "9" }],
-  [{ k: "4" }, { k: "5" }, { k: "6" }],
-  [{ k: "1" }, { k: "2" }, { k: "3" }],
-  [{ k: "0", w: 2 }, { k: "." }],
-];
-const numpadRight: Key[] = [{ k: "-" }, { k: "+", h: 2 }, { k: "↵", h: 2 }];
-
-const ACCENT_KEYS = new Set(["Esc", "Enter", "Space", "↵"]);
+  return modelUrls[normalizedLayout] ?? modelUrls["65"];
+};
 
 const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selectedSwitch, selectedPcb, caseColor }: KeyboardPreviewProps) => {
-  // Keycap set colors aren't part of the real catalog's compatibility metadata —
-  // a neutral default is used instead of guessing from the product name/id.
-  const keycapBase = "#3a3a4a";
-  const keycapAccent = "#555";
-  const isDarkLegend = false;
+  const normalizedLayout = normalizeLayoutValue(selectedLayout);
+  const keyCount = layoutKeyCount[normalizedLayout] ?? 68;
+  const caseColorHex = caseColor || "#2a2a2e";
+  const selectedModelUrl = getModelUrl(normalizedLayout, selectedKeycap);
 
-  const { rows, numpad } = buildLayout(selectedLayout || "65");
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const modelRef = useRef<THREE.Object3D | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const frameIdRef = useRef<number | null>(null);
 
-  const keyCount = keyCountForLayout(selectedLayout) ?? 68;
+  const normalizeColor = (value: string) => (value.startsWith("#") ? value : `#${value}`);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  const renderKey = (key: Key, id: string) => {
-    const w = key.w ?? 1;
-    const h = key.h ?? 1;
-    const isAccent = ACCENT_KEYS.has(key.k);
-    const bg = isAccent ? keycapAccent : keycapBase;
-    const showLabel = key.k.length <= 5 || w >= 1.5;
-    return (
-      <div key={id} style={{ width: `calc(${w} * var(--ku))`, height: `calc(${h} * var(--ku))`, padding: "var(--kgap)" }}>
-        <motion.div
-          whileHover={{ y: -2, scale: 1.04 }}
-          transition={{ type: "spring", stiffness: 400, damping: 20 }}
-          className="h-full w-full flex items-center justify-center rounded-[0.25em] font-medium cursor-default select-none border border-white/5 overflow-hidden"
-          style={{
-            fontSize: "calc(var(--ku) * 0.26)",
-            backgroundColor: bg,
-            color: isDarkLegend ? "#555" : "#ddd",
-            boxShadow: `0 2px 0 1px ${bg}88, 0 4px 8px -2px rgba(0,0,0,0.4)`,
-          }}
-        >
-          {showLabel ? key.k : ""}
-        </motion.div>
-      </div>
-    );
-  };
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x000000, 0);
+
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 1000);
+    camera.position.set(0, 4, 8);
+    camera.lookAt(0, 0, 0);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    scene.add(ambientLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    mainLight.position.set(6, 10, 7);
+    scene.add(mainLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    rimLight.position.set(-6, 6, -5);
+    scene.add(rimLight);
+
+    const loader = new GLTFLoader();
+
+    const fitCameraToModel = (model: THREE.Object3D) => {
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDimension = Math.max(size.x, size.y, size.z, 1);
+      const distance = maxDimension / (8 * Math.tan((camera.fov * Math.PI) / 360)) * 1.8;
+
+      model.position.sub(center);
+      camera.position.set(0, Math.max(size.y * 0.2, 0.5), distance);
+      camera.lookAt(0, 0, 0);
+      controlsRef.current?.target.set(0, 0, 0);
+      controlsRef.current?.update();
+    };
+
+    const loadModel = async () => {
+      if (modelRef.current) {
+        scene.remove(modelRef.current);
+        modelRef.current = null;
+      }
+
+      try {
+        const gltf = await loader.loadAsync(selectedModelUrl);
+        const model = gltf.scene;
+
+        model.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((material) => {
+                if (material instanceof THREE.Material) {
+                  material.roughness = 0.45;
+                }
+              });
+            } else if (mesh.material instanceof THREE.Material) {
+              mesh.material.roughness = 0.45;
+            }
+          }
+        });
+
+        scene.add(model);
+        modelRef.current = model;
+        fitCameraToModel(model);
+      } catch (error) {
+        console.error("Falha ao carregar modelo GLB:", error);
+      }
+    };
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 4;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+    controls.target.set(0, 0, 0);
+    controls.update();
+    controlsRef.current = controls;
+
+    loadModel();
+
+    const resize = () => {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (!width || !height) return;
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    const animate = () => {
+      controls.update();
+      renderer.render(scene, camera);
+      frameIdRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
+      controls.dispose();
+      renderer.dispose();
+      window.removeEventListener("resize", resize);
+    };
+  }, [selectedModelUrl]);
+
+  useEffect(() => {
+    if (!modelRef.current) return;
+
+    modelRef.current.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((material) => {
+            if (material instanceof THREE.MeshStandardMaterial) {
+              material.color.set(normalizeColor(caseColorHex));
+            }
+          });
+        } else if (mesh.material instanceof THREE.MeshStandardMaterial) {
+          mesh.material.color.set(normalizeColor(caseColorHex));
+        }
+      }
+    });
+  }, [caseColorHex]);
 
   return (
-    <div className="flex w-full flex-col items-center gap-6">
-      {/* Layout label */}
+    <div className="flex flex-col items-center gap-6">
       <div className="flex items-center gap-3">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Layout</span>
-        <span className="text-sm font-bold" style={{ color: "hsl(var(--foreground-strong))" }}>{selectedLayout ? layoutLabel(selectedLayout) : "—"}</span>
+        <span className="text-sm font-bold" style={{ color: "hsl(var(--foreground-strong))" }}>{selectedLayout || "65"}</span>
         <span className="text-xs text-muted-foreground">({keyCount} teclas)</span>
       </div>
 
-      {/* Keyboard body */}
       <motion.div
         layout
         transition={{ type: "spring", stiffness: 200, damping: 25 }}
-        className="relative max-w-full overflow-x-auto rounded-2xl p-[calc(var(--ku)*0.22)] shadow-2xl"
-        style={{
-          // responsive key unit: shrinks on smaller screens / bigger layouts
-          ["--ku" as string]:
-            selectedLayout === "full"
-              ? "clamp(0.75rem, 1.5vw, 1.5rem)"
-              : selectedLayout === "tkl"
-                ? "clamp(0.85rem, 1.9vw, 1.75rem)"
-                : selectedLayout === "75"
-                  ? "clamp(1rem, 2.4vw, 2rem)"
-                  : "clamp(1.1rem, 2.8vw, 2.2rem)",
-          ["--kgap" as string]: "calc(var(--ku) * 0.05)",
-          backgroundColor: caseColor,
-          boxShadow: `0 20px 60px -10px ${caseColor}55, 0 0 0 1px hsl(215 28% 17%)`,
-        }}
+        className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 shadow-2xl"
       >
-        <div
-          className="flex items-start rounded-xl p-[calc(var(--ku)*0.18)]"
-          style={{ backgroundColor: `${caseColor}cc`, gap: "calc(var(--ku) * 0.4)" }}
-        >
-          {/* Main block */}
-          <div className="flex flex-col">
-            {rows.map((row, ri) => (
-              <div key={ri} className="flex">
-                {row.map((cell, ci) =>
-                  isGap(cell) ? (
-                    <div key={`g-${ri}-${ci}`} style={{ width: `calc(${cell.gap} * var(--ku))` }} />
-                  ) : (
-                    renderKey(cell, `${ri}-${ci}`)
-                  ),
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Numpad (Full) */}
-          {numpad && (
-            <div className="flex" style={{ marginTop: "calc(var(--ku) * 1)" }}>
-              <div className="flex flex-col">
-                {numpadLeft.map((row, ri) => (
-                  <div key={`npl-${ri}`} className="flex">
-                    {row.map((key, ki) => renderKey(key as Key, `npl-${ri}-${ki}`))}
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-col">
-                {numpadRight.map((key, ki) => renderKey(key, `npr-${ki}`))}
-              </div>
-            </div>
-          )}
+        <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-white/70 backdrop-blur-sm">
+          <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          3D
+        </div>
+        <div className="absolute right-4 top-4 z-10 rounded-full border border-white/10 bg-black/40 px-2 py-1 text-[9px] uppercase tracking-[0.2em] text-white/60">
+          drag to orbit
+        </div>
+        <div className="h-[360px] w-full">
+          <canvas ref={canvasRef} aria-label="Preview 3D do teclado" className="h-full w-full cursor-grab active:cursor-grabbing" />
         </div>
       </motion.div>
 
-      {/* Status pills */}
       <div className="flex flex-wrap justify-center gap-2 text-[10px]">
         {selectedSwitch && (
           <span className="px-2.5 py-1 rounded-full bg-primary/15 text-primary border border-primary/20">
