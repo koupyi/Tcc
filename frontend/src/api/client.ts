@@ -1,9 +1,24 @@
 /**
  * HTTP Client centralizado para comunicação com o backend.
- * Usa VITE_API_URL para baseURL (nunca hardcode localhost).
+ * Usa VITE_API_URL para baseURL e garante que a rota sempre inclua /api/v1.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://tcc-hdkm.vercel.app/';
+const normalizeApiBaseUrl = (value?: string): string => {
+  const trimmed = value?.trim();
+
+  if (trimmed) {
+    const normalized = trimmed.replace(/\/+$/, '');
+    return normalized.endsWith('/api/v1') ? normalized : `${normalized}/api/v1`;
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return new URL('/api/v1', window.location.origin).toString();
+  }
+
+  return 'http://localhost:3000/api/v1';
+};
+
+const API_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
