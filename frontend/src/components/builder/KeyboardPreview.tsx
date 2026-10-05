@@ -42,13 +42,22 @@ const normalizeLayoutValue = (layout: string | null | undefined): string => {
   return "65";
 };
 
-const isGmkKeycap = (keycap: PreviewItem | null): boolean => {
-  const keycapName = keycap?.name?.toLowerCase() ?? "";
-  return keycapName.includes("gmk") || keycapName.includes("gmk");
+const isBotanicalTheme = (item: PreviewItem | null): boolean => {
+  const itemName = item?.name?.toLowerCase() ?? "";
+  return itemName.includes("botanical") || itemName.includes("garden");
 };
 
-const getModelUrl = (layout: string, keycap: PreviewItem | null): string => {
+const isGmkKeycap = (keycap: PreviewItem | null): boolean => {
+  const keycapName = keycap?.name?.toLowerCase() ?? "";
+  return keycapName.includes("gmk");
+};
+
+export const getModelUrl = (layout: string | null | undefined, keycap: PreviewItem | null, caseItem: PreviewItem | null = null): string => {
   const normalizedLayout = normalizeLayoutValue(layout);
+
+  if (normalizedLayout === "75" && (isBotanicalTheme(keycap) || isBotanicalTheme(caseItem))) {
+    return "/Teclado%2075%25%20botanical.glb";
+  }
 
   if (normalizedLayout === "65" && isGmkKeycap(keycap)) return "/teclado-65-gmk.glb";
   if (normalizedLayout === "75" && isGmkKeycap(keycap)) return "/teclado-75-gmk.glb";
@@ -60,7 +69,7 @@ const KeyboardPreview = ({ selectedLayout, selectedCase, selectedKeycap, selecte
   const normalizedLayout = normalizeLayoutValue(selectedLayout);
   const keyCount = layoutKeyCount[normalizedLayout] ?? 68;
   const caseColorHex = caseColor || "#2a2a2e";
-  const selectedModelUrl = getModelUrl(normalizedLayout, selectedKeycap);
+  const selectedModelUrl = getModelUrl(normalizedLayout, selectedKeycap, selectedCase);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
