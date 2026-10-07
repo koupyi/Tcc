@@ -104,11 +104,7 @@ const BuilderPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [configuration, setConfiguration] = useState<BuilderConfiguration>(emptyConfiguration());
-  const [stepIndex, setStepIndex] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
-  const [baseFinish, setBaseFinish] = useState<"solid" | "wood">("solid");
+
 
   const draftRestored = useRef(false);
   const prefillApplied = useRef(false);
